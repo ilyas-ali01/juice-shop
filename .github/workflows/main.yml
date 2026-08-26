@@ -37,6 +37,11 @@ jobs:
         with:
           node-version: "22"
 
+      # The CLI preflight requires npm, node, npx AND uv on PATH before --reach runs.
+      # ubuntu-latest ships the Node three; uv has to be installed.
+      # Tags are immutable from v8 on, so @v10 won't resolve — pin the full version.
+      - uses: astral-sh/setup-uv@v10.0.1
+
       - name: Install Socket CLI
         run: pip install socketsecurity
 
