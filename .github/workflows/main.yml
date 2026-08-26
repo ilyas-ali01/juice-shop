@@ -44,6 +44,9 @@ jobs:
 
       - name: Install Socket CLI
         run: pip install socketsecurity
+      
+      - name: Install dependencies
+        run: pip install uv socketsecurity
 
       - name: Run Socket scan with reachability
         env:
