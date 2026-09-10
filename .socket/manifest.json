@@ -1,0 +1,27 @@
+{
+  "patches": {
+    "pkg:npm/vm2@3.9.17": {
+      "uuid": "4a7bc049-cdb5-45ab-9c78-9838a47f2b69",
+      "exportedAt": "Tue, 07 Jul 2026 20:50:20 GMT",
+      "files": {
+        "lib/bridge.js": {
+          "beforeHash": "0c1ab95a60e095b7b12a31554094fe25703511a414e82e567ccae5e2c49ab1e8",
+          "afterHash": "e2d29bdf100706c8a07040f71e8b2b4ee7a5d999eacfaab3000029e9834fa9f7"
+        }
+      },
+      "vulnerabilities": {
+        "GHSA-vwrp-x96c-mhwq": {
+          "cves": [
+            "CVE-2026-44005"
+          ],
+          "summary": "vm2: Mutable Proxies for Host Intrinsic Prototypes Allows Sandbox Escape",
+          "severity": "CRITICAL",
+          "description": "### Summary\nvm2's bridge exposes mutable proxies for real host-realm intrinsic prototypes and then forwards sandbox writes into the underlying host objects with otherReflectSet() and otherReflectDefineProperty(), which lets attacker-controlled JavaScript running in a default VM or inherited NodeVM mutate shared host Object.prototype, Array.prototype, and Function.prototype from inside the sandbox.\n\n### Details\nBaseHandler.apply() unwraps sandbox-controlled receivers and arguments with otherFromThis() / otherFromThisArguments() and then directly invokes the real host function with ret = otherReflectApply(object, context, args), so any default-exposed host function that can surface a prototype getter becomes a prototype-walking primitive ([lib/bridge.js:665-676](https://github.com/patriksimek/vm2/blob/408fc855f1cc1bbc2985b029465ee0e732ada433/lib/bridge.js#L665-L676)). BaseHandler.get() special-cases __proto__ and returns the host-side descriptor or proxy target prototype, which is enough for the attacker to reuse the host __lookupGetter__('__proto__') accessor repeatedly until the walk lands on host Object.prototype, Array.prototype, or Function.prototype ([lib/bridge.js:590-616](https://github.com/patriksimek/vm2/blob/408fc855f1cc1bbc2985b029465ee0e732ada433/lib/bridge.js#L590-L616)). Once the attacker has a proxy to a host intrinsic prototype, BaseHandler.set() performs value = otherFromThis(value); return otherReflectSet(object, key, value) === true;, which writes attacker-controlled data directly into the shared host object instead of keeping the mutation sandbox-local; BaseHandler.defineProperty() repeats the same design at otherReflectDefineProperty(object, prop, otherDesc) for descriptor-based writes ([lib/bridge.js:641-649](https://github.com/patriksimek/vm2/blob/408fc855f1cc1bbc2985b029465ee0e732ada433/lib/bridge.js#L641-L649), [lib/bridge.js:753-774](https://github.com/patriksimek/vm2/blob/408fc855f1cc1bbc2985b029465ee0e732ada433/lib/bridge.js#L753-L774)). Existing validation does not stop the attack because the constructor filter only blocks one dangerous-property access pattern, setPrototypeOf() only blocks prototype replacement rather than ordinary property assignment, and containsDangerousConstructor() only protects one later re-unwrapping path instead of the initial host-prototype write sink ([lib/bridge.js:494-530](https://github.com/patriksimek/vm2/blob/408fc855f1cc1bbc2985b029465ee0e732ada433/lib/bridge.js#L494-L530), [lib/bridge.js:595-610](https://github.com/patriksimek/vm2/blob/408fc855f1cc1bbc2985b029465ee0e732ada433/lib/bridge.js#L595-L610), [lib/bridge.js:660-662](https://github.com/patriksimek/vm2/blob/408fc855f1cc1bbc2985b029465ee0e732ada433/lib/bridge.js#L660-L662)).\n\n### PoC\nRun the following code snippet and observe that the value of vm2EscapeMarker is polluted:\n```\nconst { VM } = require('vm2');\nconst vm = new VM();\nvm.run(`\n  const g = ({}).__lookupGetter__;\n  const a = Buffer.apply;\n  const p = a.apply(g, [Buffer, ['__proto__']]);\n  const hostObjectProto = p.call(p.call(p.call(p.call(Buffer.of()))));\n  hostObjectProto.vm2EscapeMarker = 'polluted-object-prototype';\n`);\nconsole.log({}.vm2EscapeMarker)\n```\n\n### Impact\nSandbox escape and prototype pollution."
+        }
+      },
+      "description": "",
+      "license": "",
+      "tier": "free"
+    }
+  }
+}
